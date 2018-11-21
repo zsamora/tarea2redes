@@ -3,7 +3,6 @@ import socket
 UDP_IP = "127.0.0.1"
 UDP_PORT_CLIENT = 8000
 UDP_PORT_SERVER = 8001
-WINDOW_RECEIVE = []
 file = open("tarea2res.txt","w")
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 # Message format = "ACK-BIT,SEQUENCE-NUMBER,PACKAGE"
@@ -20,9 +19,15 @@ sock.bind((UDP_IP, UDP_PORT_SERVER))
 while TwoWH:
     # SYN
     data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
-    print(data.decode("utf-8"),addr)
+    datalist = data.decode("utf-8").split(",")
+    print(datalist)
+    # Failed or corrupted SYN (paquete es ACK por ahora)
+    if (int(datalist[0])):
+        sock.sendto(str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+"ACK"), (UDP_IP, UDP_PORT_CLIENT))
+        continue
     # SYN-ACK
-    sock.sendto(str.encode(ACK_HEADER+SEPARATOR+str(nseq+1)+SEPARATOR+"SYN"), (UDP_IP, UDP_PORT))
+    nseq = int(datalist[1]) # nseq = 0
+    sock.sendto(str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+"SYN-ACK"), (UDP_IP, UDP_PORT_CLIENT))
 
 
 # Three way handshake
@@ -30,19 +35,23 @@ while ThreeWH:
     # SYN
     data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
     datalist = data.decode("utf-8").split(",")
-    print(data)
-    # Failed or corrupted SYN
-    if (int(datalist[0])): # Si el paquete es ACK
-        sock.sendto(str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+"SYN"), (UDP_IP, UDP_PORT_CLIENT))
+    print(datalist)
+    # Failed or corrupted SYN (paquete es ACK por ahora)
+    if (int(datalist[0])):
+        sock.sendto(str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+"ACK"), (UDP_IP, UDP_PORT_CLIENT))
         continue
     # SYN-ACK
-    nseq += 1 # nseq = 0
-    sock.sendto(str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+"SYN"), (UDP_IP, UDP_PORT_CLIENT))
+    nseq = int(datalist[1]) # nseq = 0
+    sock.sendto(str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+"SYN-ACK"), (UDP_IP, UDP_PORT_CLIENT))
+    # ACK
     data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
-    print(data.decode("utf-8"),addr)
-    if nseq == 1:
-        ThreeWH = False
-
+    datalist = data.decode("utf-8").split(",")
+    print(datalist)
+    if int(datalist[0]):
+        nseq = int(datalist[1])
+    else:
+        sock.sendto(str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+"ACK"), (UDP_IP, UDP_PORT_CLIENT))
+    ThreeWH = False
 
 while Conn:
     data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
@@ -50,4 +59,5 @@ while Conn:
     #print(data.decode("utf-8"))
     if not(data):
         break
+sock.close()
 file.close()
