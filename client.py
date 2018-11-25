@@ -3,86 +3,106 @@ import os
 
 # Constants
 UDP_IP = "127.0.0.1"
-UDP_PORT_CLIENT = 8000
-UDP_PORT_SERVER = 8001
-UDP_PORT_RECEIVER = 0
-WINDOW_SIZE = 5
+UDP_PORT = 8000
+#UDP_PORT_SERVER = 8001
+BITS_SEQUENCE = 3
+WINDOW_SIZE =2**BITS_SEQUENCE - 1
+#SENT_SIZE = WINDOW_SIZE  / 2
 PACKAGE_SIZE = 1
-INITIAL_TIMEOUT = 1000
+TIMEOUT = 0.5
 
-# Message format = "ACK-BIT,SEQUENCE-NUMBER,PACKAGE"
+# Message format = "ACK-BIT|||SEQUENCE-NUMBER|||PACKAGE"
 ACK_HEADER = "1" # ACK=True/False
 PKG_HEADER = "0"
-SEPARATOR = ","
-nseq = -1
+SEPARATOR = "|||"
 TwoWH = False
 ThreeWH = True
-Conn = False
-
-file = open("tarea2.txt","r")
-size = os.stat("tarea2.txt").st_size
+Conn = False#True
+save = True
+resend = False
+# File open and size
+file = open("tarea2.txt","rb")
+file_size = os.stat("tarea2.txt").st_size
 # Variables
 count = 0
-sent = 1
+sent = 0
+base = 0
+nextseqnum = 0
 # Socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind((UDP_IP, UDP_PORT_CLIENT))
-package = [""]*5
+#sock.bind((UDP_IP, UDP_PORT_CLIENT))
+package = [""]*WINDOW_SIZE # Buffer
 
 # Two way handshake
 while TwoWH:
     # SYN
-    nseq = nseq + 1 # nseq = 0
-    sock.sendto(str.encode(PKG_HEADER+SEPARATOR+str(nseq)+SEPARATOR+"SYN"), (UDP_IP, UDP_PORT_SERVER))
+    pkt = str.encode(PKG_HEADER+SEPARATOR+str(base)+SEPARATOR+str(WINDOW_SIZE))
+    sock.sendto(pkt, (UDP_IP, UDP_PORT))
     # SYN-ACK
-    data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
+    data, addr = sock.recvfrom(1024)
     datalist = data.decode("utf-8").split(SEPARATOR)
     print(datalist)
-    if (not(int(datalist[0])) or int(datalist[1])<nseq): # Not ACK or seq number of package < nseq
-        nseq = -1
-        continue
-    nseq += 1 # nseq = 1
-    ThreeWH = False
+    if (int(datalist[0]) and int(datalist[1])==base):
+        TwoWH = False
 
 # Three way handshake
 while ThreeWH:
     # SYN
-    nseq = nseq + 1 # nseq = 0
-    sock.sendto(str.encode(PKG_HEADER+SEPARATOR+str(nseq)+SEPARATOR+"SYN"), (UDP_IP, UDP_PORT_SERVER))
+    pkt = str.encode(PKG_HEADER+SEPARATOR+str(base)+SEPARATOR+str(WINDOW_SIZE))
+    sock.sendto(pkt, (UDP_IP, UDP_PORT))
     # SYN-ACK
-    data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
+    data, addr = sock.recvfrom(1024)
     datalist = data.decode("utf-8").split(SEPARATOR)
     print(datalist)
-    if (not(int(datalist[0])) or int(datalist[1])<nseq): # Not ACK or seq number of package < nseq
-        nseq = -1
-        continue
-    nseq += 1 # nseq = 1
-    # ACK
-    sock.sendto(str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+"ACK"), (UDP_IP, UDP_PORT_SERVER))
-    nseq += 1 # nseq = 2
-    ThreeWH = False
+    if (int(datalist[0]) and int(datalist[1])==base):
+        base += 1
+        # ACK
+        pkt = str.encode(ACK_HEADER+SEPARATOR+str(base)+SEPARATOR+"ACK")
+        sock.sendto(pkt, (UDP_IP, UDP_PORT))
+        ThreeWH = False
+    base = 0
 
-## Package sending
-nseq = 0
 while Conn:
-    sent = 0
-    # Se recibio un ACK o más
-    if nseq != 0:
-        print()
-    # Envio de paquetes
-    while nseq < WINDOW_SIZE:
-        package[nseq] = PKG_HEADER+SEPARATOR+str(nseq)+SEPARATOR+file.read(PACKAGE_SIZE)
-        sock.sendto(str.encode(package[nseq]), (UDP_IP, UDP_PORT_CLIENT))
-        nseq += 1
-        sent += 1
-    count += sent
-    # Recibo de ACK's
-    data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
-    datalist = data.decode("utf-8").split(SEPARATOR)
-    if int(datalist[0]):
-        nseq = (int(datalist[1]) + 1) % 5 # nseq multiplo de 5
+    while save:
+        package[nextseqnum] = file.read(PACKAGE_SIZE)
+        pkt = str.encode(PKG_HEADER+SEPARATOR+str(nextseqnum)+SEPARATOR+package[nextseqnum])
+        sock.sendto(pkt, (UDP_IP, UDP_PORT_CLIENT))
+        if base == nextseqnum: # Base dio la vuelta entera o no hay ACK's aun
+            sock.settimeout(0.5) # 0.5 seg
+        nextseqnum += 1
+        if nextseqnum > base + WINDOW_SIZE:
+            nextseqnum = nextseqnum % WINDOW_SIZE
+            save = False
+    i = base
+    j = 0
+    while resend:
+        i += j
+        if (i == base):
+            sock.settimeout(0.5)
+        sock.sendto(str.encode(PKG_HEADER+SEPARATOR+str(nseq)+SEPARATOR+package[i]), (UDP_IP, UDP_PORT_CLIENT))
+        j += 1
+        if j == WINDOW_SIZE:
+            resend = False
+    try:
+        data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
+        datalist = data.decode("utf-8").split(SEPARATOR)
+        if int(datalist[0]):
+            #recnseq = (int(datalist[1]) + 1) % 5 # nseq multiplo de 5
+            base = int(datalist[1])
+            if base == -1:
+                save = False
+            elif (base == nextseqnum):
+                sock.settimeout(None)
+                save = True
+            else:
+                sock.settimeout(0.5) # 0.5 seg
+                save = True
+    except:
+        continue
 
-    if (count < size):
+    count += received # Se suman los ACKed
+    # Texto finalizado
+    if (count >= file_size):
         Conn = False
 ## Close conection
 file.close()
