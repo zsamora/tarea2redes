@@ -7,14 +7,22 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 # Message format = "ACK-BIT|||SEQUENCE-NUMBER|||PACKAGE"
 ACK_HEADER = "1" # ACK=True/False
 PKG_HEADER = "0"
+FIN_HEADER = "1"
+FIN_FALSE = "0"
 SEPARATOR = "|||"
+data = ""
+addr = ""
+TIMEOUT = 2
+MAX_RT = 10
 TwoWH = False
 ThreeWH = True
+Close = True
 Conn = True
-CloseCon = False
+
 # Variables
 MAX_NSEQ = 0
 expected_seqn = 0
+transm = 0
 
 sock.bind((UDP_IP, UDP_PORT))
 
@@ -26,8 +34,8 @@ while TwoWH:
     # SYN-ACK
     nseq = int(datalist[1])
     if (expected_seqn == nseq):
-        MAX_NSEQ = int(datalist[2])
-        pkt = str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+"SYN-ACK")
+        MAX_NSEQ = int(datalist[3]) + 1
+        pkt = str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+FIN_FALSE+SEPARATOR+"SYN-ACK")
         sock.sendto(pkt, addr)
         TwoWH = False
 
@@ -40,8 +48,8 @@ while ThreeWH:
     # SYN-ACK
     nseq = int(datalist[1])
     if (expected_seqn == nseq):
-        MAX_NSEQ = int(datalist[2]) + 1
-        pkt = str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+"SYN-ACK")
+        MAX_NSEQ = int(datalist[3]) + 1
+        pkt = str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+FIN_FALSE+SEPARATOR+"SYN-ACK")
         sock.sendto(pkt, addr)
         expected_seqn += 1
         # ACK
@@ -53,34 +61,44 @@ while ThreeWH:
     expected_seqn = 0
 
 while Conn:
-    #sock.settimeout(5) # No se recibe mas informacion o se cayo el server
+    if transm > MAX_RT:
+        print("Closed connection with client")
+        sock.settimeout(None)
+        Conn = False
+        Close = False
+        break
+    sock.settimeout(TIMEOUT) # No se recibe mas informacion o se cayo el server
     try:
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
-        print(datalist)
-        if (int(datalist[1])==expected_seqn):
-            pkt = str.encode(ACK_HEADER+SEPARATOR+str(expected_seqn)+SEPARATOR+"ACK")
-            sock.sendto(pkt, addr)
-            file.write(datalist[2])
-            expected_seqn = (expected_seqn + 1) % MAX_NSEQ
-    except:
-        # FIN CLIENT
-        if (datalist[0] == "FIN_CLIENT"):
+        if (int(datalist[2])):
+            sock.settimeout(None)
             Conn = False
-
+        elif (int(datalist[1])==expected_seqn):
+            pkt = str.encode(ACK_HEADER+SEPARATOR+str(expected_seqn)+SEPARATOR+FIN_FALSE+SEPARATOR+"ACK")
+            sock.sendto(pkt, addr)
+            file.write(datalist[3])
+            expected_seqn = (expected_seqn + 1) % MAX_NSEQ
+    except Exception as e:
+        print(e)
+        transm += 1
+        break
 
 # Close conection server
-while CloseCon:
-    # FIN_SERVER
-    pkt = str.encode("FIN_SERVER")
-    sock.sendto(pkt, (UDP_IP, UDP_PORT))
+while Close:
     # ACK_SERVER
-    pkt = str.encode("CLOSE_ACK_SERVER")
-    sock.sendto(pkt, (UDP_IP, UDP_PORT))
+    pkt = str.encode(ACK_HEADER+SEPARATOR+str(expected_seqn)+SEPARATOR+FIN_HEADER+SEPARATOR+"ACK_SERVER")
+    sock.sendto(pkt, addr)
+    expected_seqn = (expected_seqn + 1) % MAX_NSEQ
+    # FIN_SERVER
+    pkt = str.encode(PKG_HEADER+SEPARATOR+str(expected_seqn)+SEPARATOR+FIN_HEADER+SEPARATOR+"FIN_SERVER")
+    sock.sendto(pkt, addr)
+    expected_seqn = (expected_seqn + 1) % MAX_NSEQ
     # ACK_CLIENT
     data, addr = sock.recvfrom(1024)
-    datalist = data.decode("utf-8")
-    if (datalist == "CLOSE_ACK_CLIENT"):
-        CloseCon = False
+    datalist = data.decode("utf-8").split(SEPARATOR)
+    if (int(datalist[0]) and int(datalist[2])):
+        Close = False
         file.close()
         sock.close()
+        break
