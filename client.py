@@ -23,7 +23,7 @@ SEPARATOR = "|||"
 TwoWH = False
 ThreeWH = True
 Conn = True
-CloseCon = True
+CloseCon = False
 savesend = True
 resend = False
 # File open and size
@@ -105,7 +105,6 @@ while Conn:
             sock.settimeout(TIMEOUT)
         pkt = str.encode(PKG_HEADER+SEPARATOR+str(i)+SEPARATOR+package[j])
         sock.sendto(pkt, (UDP_IP, UDP_PORT))
-        time_send = time.process_time()
         j += 1
         if j == WINDOW_SIZE:
             resend = False
@@ -114,6 +113,7 @@ while Conn:
         #time_ack = time.process_time()
         #rtt = (time_ack - time_send)
         #TIMEOUT = setTimeout(rtt)
+        #print(TIMEOUT)
         datalist = data.decode("utf-8").split(SEPARATOR)
         if int(datalist[0]):
             nseqr = (int(datalist[1]) + 1) % WINDOW_SIZE
@@ -137,7 +137,9 @@ while Conn:
         continue
     # Texto finalizado
     if (count >= file_size):
+        sock.settimeout(None)
         Conn = False
+        CloseCon = True
 
 # Close conection client
 while CloseCon:
