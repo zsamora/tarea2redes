@@ -4,13 +4,13 @@ UDP_IP = "127.0.0.1"
 UDP_PORT = 8000
 file = open("tarea2res.txt","w")
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-# Message format = "ACK-BIT,SEQUENCE-NUMBER,PACKAGE"
+# Message format = "ACK-BIT|||SEQUENCE-NUMBER|||PACKAGE"
 ACK_HEADER = "1" # ACK=True/False
 PKG_HEADER = "0"
 SEPARATOR = "|||"
 TwoWH = False
 ThreeWH = True
-Conn = False#True
+Conn = True
 # Variables
 MAX_NSEQ = 0
 expected_seqn = 0

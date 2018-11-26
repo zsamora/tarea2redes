@@ -4,12 +4,17 @@ import os
 # Constants
 UDP_IP = "127.0.0.1"
 UDP_PORT = 8000
-#UDP_PORT_SERVER = 8001
 BITS_SEQUENCE = 3
 WINDOW_SIZE =2**BITS_SEQUENCE - 1
 #SENT_SIZE = WINDOW_SIZE  / 2
 PACKAGE_SIZE = 1
-TIMEOUT = 0.5
+TIMEOUT = 1
+time_send = 0
+time_ack = 0
+alpha = 0.125
+beta = 0.25
+devRTT = 0
+estimatedRTT = 0
 
 # Message format = "ACK-BIT|||SEQUENCE-NUMBER|||PACKAGE"
 ACK_HEADER = "1" # ACK=True/False
@@ -17,7 +22,7 @@ PKG_HEADER = "0"
 SEPARATOR = "|||"
 TwoWH = False
 ThreeWH = True
-Conn = False#True
+Conn = True
 save = True
 resend = False
 # File open and size
@@ -30,8 +35,21 @@ base = 0
 nextseqnum = 0
 # Socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-#sock.bind((UDP_IP, UDP_PORT_CLIENT))
-package = [""]*WINDOW_SIZE # Buffer
+package = []
+
+# Algoritmo de Karn
+def setTimeout(s_rtt):
+    # RTT estimado
+    sampleRTT = s_rtt
+    estimatedRTT = (1-alpha)*estimatedRTT + alpha*sampleRTT
+    # Desviacion estandar
+    if ((sampleRTT - estimatedRTT) < 0)
+        devRTT = (1-beta)*devRTT + beta*(estimatedRTT-sampleRTT)
+    else:
+        devRTT = (1-beta)*devRTT + beta*(sampleRTT-estimatedRTT)
+    #Calculo del Timeout
+    timeout = estimatedRTT + 4*devRTT
+    return timeout
 
 # Two way handshake
 while TwoWH:
@@ -63,44 +81,48 @@ while ThreeWH:
     base = 0
 
 while Conn:
+    #package = package[base:]
     while save:
-        package[nextseqnum] = file.read(PACKAGE_SIZE)
+        package.append(file.read(PACKAGE_SIZE))
         pkt = str.encode(PKG_HEADER+SEPARATOR+str(nextseqnum)+SEPARATOR+package[nextseqnum])
+        time_send = time.clock()
         sock.sendto(pkt, (UDP_IP, UDP_PORT_CLIENT))
-        if base == nextseqnum: # Base dio la vuelta entera o no hay ACK's aun
-            sock.settimeout(0.5) # 0.5 seg
+        if base == nextseqnum:
+            sock.settimeout(TIMEOUT)
         nextseqnum += 1
         if nextseqnum > base + WINDOW_SIZE:
             nextseqnum = nextseqnum % WINDOW_SIZE
             save = False
+
     i = base
     j = 0
     while resend:
-        i += j
+        i = (i + j) % WINDOW_SIZE
         if (i == base):
-            sock.settimeout(0.5)
-        sock.sendto(str.encode(PKG_HEADER+SEPARATOR+str(nseq)+SEPARATOR+package[i]), (UDP_IP, UDP_PORT_CLIENT))
+            sock.settimeout(TIMEOUT)
+        pkt = str.encode(PKG_HEADER+SEPARATOR+str(nseq)+SEPARATOR+package[i])
+        sock.sendto(pkt, (UDP_IP, UDP_PORT_CLIENT))
         j += 1
-        if j == WINDOW_SIZE:
+        if j > WINDOW_SIZE:
             resend = False
     try:
-        data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
+        data, addr = sock.recvfrom(1024)
+        time_ack = time.clock()
+        rtt = (time_ack - time_send)
+        TIMEOUT = setTimeout(rtt)
         datalist = data.decode("utf-8").split(SEPARATOR)
         if int(datalist[0]):
-            #recnseq = (int(datalist[1]) + 1) % 5 # nseq multiplo de 5
-            base = int(datalist[1])
-            if base == -1:
-                save = False
-            elif (base == nextseqnum):
+            base = (int(datalist[1]) + 1) % WINDOW_SIZE
+            if (base == nextseqnum): # All ACK'd
                 sock.settimeout(None)
                 save = True
-            else:
-                sock.settimeout(0.5) # 0.5 seg
+                count += WINDOW_SIZE * PACKAGE_SIZE
+            else: # Some ACK'd
+                sock.settimeout(TIMEOUT)
                 save = True
+                count += received # Se suman los ACKed
     except:
         continue
-
-    count += received # Se suman los ACKed
     # Texto finalizado
     if (count >= file_size):
         Conn = False
