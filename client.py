@@ -8,7 +8,7 @@ UDP_PORT = 8000
 BITS_SEQUENCE = 3
 WINDOW_SIZE = 2**BITS_SEQUENCE
 PACKAGE_SIZE = 1
-TIMEOUT = 1
+TIMEOUT = 2
 time_send = 0
 time_ack = 0
 alpha = 0.125
@@ -33,9 +33,10 @@ count = 0
 base = 0
 nextseqnum = 0
 received = 0
-package = []
 # Socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+# Buffer
+package = []
 
 # Algoritmo de Karn
 def setTimeout(s_rtt):
@@ -47,7 +48,7 @@ def setTimeout(s_rtt):
         devRTT = (1-beta)*devRTT + beta*(estimatedRTT-sampleRTT)
     else:
         devRTT = (1-beta)*devRTT + beta*(sampleRTT-estimatedRTT)
-    # Calculo del Timeout
+    #Calculo del Timeout
     timeout = estimatedRTT + 4*devRTT
     return timeout
 
@@ -109,9 +110,8 @@ while Conn:
             resend = False
     try:
         data, addr = sock.recvfrom(1024)
-        time_ack = time.process_time()
-        rtt = (time_ack - time_send)
-        print(setTimeout(rtt))
+        #time_ack = time.process_time()
+        #rtt = (time_ack - time_send)
         #TIMEOUT = setTimeout(rtt)
         datalist = data.decode("utf-8").split(SEPARATOR)
         if int(datalist[0]):
