@@ -1,4 +1,5 @@
 import socket
+import sys
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 8000
@@ -14,8 +15,8 @@ data = ""
 addr = ""
 TIMEOUT = 2
 MAX_RT = 10
-TwoWH = False
-ThreeWH = True
+TwoWH = sys.argv[1]
+ThreeWH = sys.argv[2]
 Close = True
 Conn = True
 
@@ -45,6 +46,7 @@ while ThreeWH:
     # SYN
     data, addr = sock.recvfrom(1024)
     datalist = data.decode("utf-8").split(SEPARATOR)
+    #print (datalist)
     # SYN-ACK
     nseq = int(datalist[1])
     if (expected_seqn == nseq):
@@ -60,6 +62,8 @@ while ThreeWH:
             ThreeWH = False
     expected_seqn = 0
 
+print ("Conexion con el cliente establecida con exito")
+
 while Conn:
     if transm > MAX_RT:
         print("Closed connection with client")
@@ -71,6 +75,7 @@ while Conn:
     try:
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
+        #print (datalist)
         if (int(datalist[2])):
             sock.settimeout(None)
             Conn = False
@@ -79,10 +84,12 @@ while Conn:
             sock.sendto(pkt, addr)
             file.write(datalist[3])
             expected_seqn = (expected_seqn + 1) % MAX_NSEQ
+            transm = 0
     except Exception as e:
         print(e)
         transm += 1
-        break
+
+print("Se cerrara la conexion")
 
 # Close conection server
 while Close:
@@ -101,4 +108,5 @@ while Close:
         Close = False
         file.close()
         sock.close()
+        print("Conexion con el cliente cerrada con exito")
         break

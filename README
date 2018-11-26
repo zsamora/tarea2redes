@@ -1,0 +1,18 @@
+Ejecución:
+
+-Se utiliza python 3 para la tarea.
+
+-Debe primero correrse el archivo server.py y luego client.py:
+
+	$ python3 server.py [Two-Way-HandShake] [Three-Way-HandShake]
+	$ python3 cliente.py [Two-Way-HandShake] [Three-Way-HandShake]
+
+-En los valores dentro de las casillas ponemos un booleano para establecer el tipo de conexión. Por ejemplo, si queremos una conexión Two-Way-HandShake:
+	
+	$ python3 server.py [True] [False]
+	$ python3 cliente.py [True] [False]
+
+-Si queremos una conexión Three-Way-HandShake:
+	
+	$ python3 server.py [False] [True]
+	$ python3 cliente.py [False] [True]

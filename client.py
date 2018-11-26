@@ -1,6 +1,7 @@
 import socket
 import os
 import time
+import sys
 
 # Constants
 UDP_IP = "127.0.0.1"
@@ -21,8 +22,8 @@ FIN_FALSE = "0"
 SEPARATOR = "|||"
 data = ""
 addr = ""
-TwoWH = False
-ThreeWH = True
+TwoWH = sys.argv[1]
+ThreeWH = sys.argv[2]
 savesend = True
 resend = False
 Close = True
@@ -38,6 +39,7 @@ base = 0
 nextseqnum = 0
 received = 0
 transm = 0
+n_transm = 0
 time_send = 0
 time_ack = 0
 devRTT = 0
@@ -82,6 +84,7 @@ while ThreeWH:
     # SYN-ACK
     data, addr = sock.recvfrom(1024)
     datalist = data.decode("utf-8").split(SEPARATOR)
+    #print (datalist)
     if (int(datalist[0]) and int(datalist[1])==base):
         base += 1
         # ACK
@@ -89,6 +92,10 @@ while ThreeWH:
         sock.sendto(pkt, (UDP_IP, UDP_PORT))
         ThreeWH = False
     base = 0
+
+print ("Conexion con el servidor establecida con exito")
+
+tiempo_inicio = time.time()
 
 while Conn:
     if transm > MAX_RT:
@@ -117,6 +124,7 @@ while Conn:
         i = (i + j) % WINDOW_SIZE
         if (i == base):
             transm += 1
+            n_transm += transm
             sock.settimeout(TIMEOUT)
         pkt = str.encode(PKG_HEADER+SEPARATOR+str(i)+SEPARATOR+FIN_FALSE+SEPARATOR+package[j])
         sock.sendto(pkt, (UDP_IP, UDP_PORT))
@@ -126,6 +134,7 @@ while Conn:
     try:
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
+        #print (datalist)
         if int(datalist[0]):
             nseqr = (int(datalist[1]) + 1) % WINDOW_SIZE
             time_ack = time.time()
@@ -147,7 +156,7 @@ while Conn:
                     base = (base + 1) % WINDOW_SIZE
                 count += received * PACKAGE_SIZE
     except Exception as e:
-        #print(e)
+        print(e)
         TIMEOUT *= 2
         savesend = False
         resend = True
@@ -157,6 +166,11 @@ while Conn:
         sock.settimeout(None)
         Conn = True
         break
+
+tiempo_final = time.time()
+tiempo_envio = tiempo_final - tiempo_inicio
+
+print ("Envio realizado con exito")
 
 # Close conection client
 while Close:
@@ -179,4 +193,8 @@ while Close:
             Close = False
             file.close()
             sock.close()
+            print("Conexion con el servidor cerrada con exito")
             break
+
+print("Tiempo de envio: " + str(tiempo_envio))
+print("Numero de retransmisiones: " + str(n_transm))
