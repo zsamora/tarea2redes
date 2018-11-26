@@ -11,6 +11,7 @@ SEPARATOR = "|||"
 TwoWH = False
 ThreeWH = True
 Conn = True
+CloseCon = True
 # Variables
 MAX_NSEQ = 0
 expected_seqn = 0
@@ -67,5 +68,22 @@ while Conn:
         print("Timeout")
         Conn = False
 
-sock.close()
-file.close()
+# Close conection server
+while CloseCon:
+    # FIN_CLIENT
+    data, addr = sock.recvfrom(1024)
+    datalist = data.decode("utf-8")
+    if (datalist == "FIN_CLIENT"):
+        # FIN_SERVER
+        pkt = str.encode("FIN_SERVER")
+        sock.sendto(pkt, (UDP_IP, UDP_PORT))
+        # ACK_SERVER
+        pkt = str.encode("CLOSE_ACK_SERVER")
+        sock.sendto(pkt, (UDP_IP, UDP_PORT))
+        # ACK_CLIENT
+        data, addr = sock.recvfrom(1024)
+        datalist = data.decode("utf-8")
+        if (datalist == "CLOSE_ACK_CLIENT"):
+            CloseCon = False
+            file.close()
+            sock.close()

@@ -23,6 +23,7 @@ SEPARATOR = "|||"
 TwoWH = False
 ThreeWH = True
 Conn = True
+CloseCon = True
 savesend = True
 resend = False
 # File open and size
@@ -137,6 +138,23 @@ while Conn:
     # Texto finalizado
     if (count >= file_size):
         Conn = False
-## Close conection
-file.close()
-sock.close()
+
+# Close conection client
+while CloseCon:
+    # FIN_CLIENT
+    pkt = str.encode("FIN_CLIENT")
+    sock.sendto(pkt, (UDP_IP, UDP_PORT))
+    # FIN_SERVER
+    data, addr = sock.recvfrom(1024)
+    datalist = data.decode("utf-8")
+    if (datalist == "FIN_SERVER"):
+        # ACK_SERVER
+        data, addr = sock.recvfrom(1024)
+        datalist = data.decode("utf-8")
+        if (datalist == "CLOSE_ACK_SERVER"):
+            # ACK_CLIENT
+            pkt = str.encode("CLOSE_ACK_CLIENT")
+            sock.sendto(pkt, (UDP_IP, UDP_PORT))
+            CloseCon = False
+            file.close()
+            sock.close()
