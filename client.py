@@ -40,7 +40,7 @@ base = 0
 nextseqnum = 0
 received = 0
 transm = 0
-n_transm = 0
+#n_transm = 0
 time_send = 0
 time_ack = 0
 devRTT = 0
@@ -142,6 +142,7 @@ while Conn:
             nseqr = (int(datalist[1]) + 1) % WINDOW_SIZE
             time_ack = time.time()
             rtt = (time_ack - time_send)
+            TIMEOUT = setTimeout(rtt, estimatedRTT, devRTT)
             received = 0
             transm = 0
             if (nseqr == nextseqnum): # All ACK'd
@@ -159,8 +160,9 @@ while Conn:
                 count += received * PACKAGE_SIZE
     except Exception as e:
         print(e)
-        #TIMEOUT = setTimeout(rtt, estimatedRTT, devRTT)
-        TIMEOUT *= 2
+        if not(RS):
+            TIMEOUT *= 2
+        RS = True
         savesend = False
         resend = True
         continue
