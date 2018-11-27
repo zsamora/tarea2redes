@@ -5,7 +5,7 @@ UDP_IP = "127.0.0.1"
 UDP_PORT = 8000
 file = open("tarea2res.txt","w")
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-# Message format = "ACK-BIT|||SEQUENCE-NUMBER|||PACKAGE"
+# Message format = "ACK-BIT|||SEQUENCE-NUMBER|||FIN-BIT|||PACKAGE"
 ACK_HEADER = "1" # ACK=True/False
 PKG_HEADER = "0"
 FIN_HEADER = "1"
@@ -27,7 +27,7 @@ transm = 0
 
 # Socket
 sock.bind((UDP_IP, UDP_PORT))
-#print("TW",TwoWH, "Three", ThreeWH)
+
 # Two way handshake
 while TwoWH:
     print("Two way handshake")
@@ -58,9 +58,9 @@ while TwoWH:
 
 # Three way handshake
 while ThreeWH:
-    #print("Three way handshake")
     sock.settimeout(TIMEOUT) # MAX_RT * 2 seg (tiempo en que el cliente desiste)
     try:
+        #print("expected_seqn1:",expected_seqn)
         # SYN
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
@@ -72,6 +72,7 @@ while ThreeWH:
             pkt = str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+FIN_FALSE+SEPARATOR+"SYN-ACK")
             sock.sendto(pkt, addr)
             expected_seqn += 1
+            #print("expected_seqn2:",expected_seqn)
             # ACK
             data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
             datalist = data.decode("utf-8").split(SEPARATOR)
@@ -79,13 +80,23 @@ while ThreeWH:
             nseq = int(datalist[1])
             if (int(datalist[0]) and expected_seqn==nseq):
                 sock.settimeout(None)
-                transm = 0
                 ThreeWH = False
+                expected_seqn += 1
+                #print("expected_seqn3:",expected_seqn)
                 print ("Conexion con el cliente establecida con exito")
-        expected_seqn = 0
+            elif (expected_seqn < nseq):
+                sock.settimeout(None)
+                ThreeWH = False
+                expected_seqn += 1
+                #print("expected_seqn4:",expected_seqn)
+                print ("Conexion con el cliente establecida con exito")
+            else:
+                #print("expected_seqn5:",expected_seqn)
+                expected_seqn = 0
     except Exception as e:
         print(e)
         print("Can't stablish connection with client")
+        expected_seqn = 0
         Conn = False
         Close = False
         file.close()
