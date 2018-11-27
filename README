@@ -9,10 +9,10 @@ Ejecución:
 
 -En los valores dentro de las casillas ponemos un booleano para establecer el tipo de conexión. Por ejemplo, si queremos una conexión Two-Way-HandShake:
 	
-	$ python3 server.py [True] [False]
-	$ python3 cliente.py [True] [False]
+	$ python3 server.py True False
+	$ python3 cliente.py True False
 
 -Si queremos una conexión Three-Way-HandShake:
 	
-	$ python3 server.py [False] [True]
-	$ python3 cliente.py [False] [True]
+	$ python3 server.py False True
+	$ python3 cliente.py False True
