@@ -132,13 +132,23 @@ while Close:
     pkt = str.encode(PKG_HEADER+SEPARATOR+str(expected_seqn)+SEPARATOR+FIN_HEADER+SEPARATOR+"FIN_SERVER")
     sock.sendto(pkt, addr)
     expected_seqn = (expected_seqn + 1) % MAX_NSEQ
+    sock.settimeout(TIMEOUT)
+    try:
     # ACK_CLIENT
-    data, addr = sock.recvfrom(1024)
-    datalist = data.decode("utf-8").split(SEPARATOR)
-    print(datalist)
-    if (int(datalist[0]) and int(datalist[2])):
+        data, addr = sock.recvfrom(1024)
+        datalist = data.decode("utf-8").split(SEPARATOR)
+        print(datalist)
+        if (int(datalist[0]) and int(datalist[2])):
+            sock.settimeout(None)
+            Close = False
+            file.close()
+            sock.close()
+            print("Conexion con el cliente cerrada con exito")
+            break
+    except Exception as e:
+        print(e)
+        print("Can't close connection with client correctly")
         Close = False
         file.close()
         sock.close()
-        print("Conexion con el cliente cerrada con exito")
         break

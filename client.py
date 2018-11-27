@@ -11,7 +11,7 @@ MAX_NSEQ = WINDOW_SIZE * 2
 PACKAGE_SIZE = 1
 SYN_TIMEOUT = 2
 TIMEOUT = 1
-MAX_RT = 10
+MAX_RT = 5
 alpha = 0.125
 beta = 0.25
 
@@ -234,28 +234,43 @@ tiempo_envio = tiempo_final - tiempo_inicio
 
 # Close conection client
 while Close:
-    # FIN_CLIENT
-    nextseqnum = (nextseqnum + 1) % WINDOW_SIZE
-    pkt = str.encode(PKG_HEADER+SEPARATOR+str(nextseqnum)+SEPARATOR+FIN_HEADER+SEPARATOR+"FIN_CLIENT")
-    sock.sendto(pkt, (UDP_IP, UDP_PORT))
-    nextseqnum = (nextseqnum + 1) % WINDOW_SIZE
-    # ACK_SERVER
-    data, addr = sock.recvfrom(1024)
-    datalist = data.decode("utf-8").split(SEPARATOR)
-    print(datalist)
-    if (int(datalist[0]) and int(datalist[2])):
-        # FIN_SERVER
+    if transm > MAX_RT:
+        print("Can't close conection with server")
+        sock.settimeout(None)
+        Conn = False
+        Close = False
+        file.close()
+        sock.close()
+        break
+    sock.settimeout(SYN_TIMEOUT) # 2 segundos entre cada retransmision del paquete FIN
+    try:
+        # FIN_CLIENT
+        nextseqnum = (nextseqnum + 1) % MAX_NSEQ
+        pkt = str.encode(PKG_HEADER+SEPARATOR+str(nextseqnum)+SEPARATOR+FIN_HEADER+SEPARATOR+"FIN_CLIENT")
+        sock.sendto(pkt, (UDP_IP, UDP_PORT))
+        nextseqnum = (nextseqnum + 1) % MAX_NSEQ
+        # ACK_SERVER
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
         print(datalist)
-        if int(datalist[2]):
-            # ACK_CLIENT
-            pkt = str.encode(ACK_HEADER+SEPARATOR+str(nextseqnum)+SEPARATOR+FIN_HEADER+SEPARATOR+"ACK_CLIENT")
-            sock.sendto(pkt, (UDP_IP, UDP_PORT))
-            Close = False
-            file.close()
-            sock.close()
-            print("Conexion con el servidor cerrada con exito")
-            print("Tiempo de envio: " + str(tiempo_envio))
-            print("Numero de retransmisiones: " + str(n_transm))
-            break
+        if (int(datalist[0]) and int(datalist[2])):
+            # FIN_SERVER
+            data, addr = sock.recvfrom(1024)
+            datalist = data.decode("utf-8").split(SEPARATOR)
+            print(datalist)
+            if int(datalist[2]):
+                sock.settimeout(None)
+                transm = 0
+                # ACK_CLIENT
+                pkt = str.encode(ACK_HEADER+SEPARATOR+str(nextseqnum)+SEPARATOR+FIN_HEADER+SEPARATOR+"ACK_CLIENT")
+                sock.sendto(pkt, (UDP_IP, UDP_PORT))
+                Close = False
+                file.close()
+                sock.close()
+                print("Conexion con el servidor cerrada con exito")
+                print("Tiempo de envio: " + str(tiempo_envio))
+                print("Numero de retransmisiones: " + str(n_transm))
+                break
+    except Exception as e:
+        print(e)
+        transm +=1
