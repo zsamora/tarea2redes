@@ -28,6 +28,7 @@ savesend = True
 resend = False
 Close = True
 Conn = True
+RS = False
 
 # File open and size
 file = open("tarea2.txt","rb")
@@ -109,10 +110,10 @@ while Conn:
         if p != '':
             package.append(p)
             pkt = str.encode(PKG_HEADER+SEPARATOR+str(nextseqnum)+SEPARATOR+FIN_FALSE+SEPARATOR+p)
+            time_send = time.time()
             sock.sendto(pkt, (UDP_IP, UDP_PORT))
         if (nextseqnum == base):
             sock.settimeout(TIMEOUT)
-            time_send = time.time()
         nextseqnum = (nextseqnum + 1) % WINDOW_SIZE
         if received != 0:
             received -= 1
@@ -121,6 +122,7 @@ while Conn:
     i = base
     j = 0
     while resend:
+        print ("Retransmitiendo")
         i = (i + j) % WINDOW_SIZE
         if (i == base):
             transm += 1
@@ -131,6 +133,7 @@ while Conn:
         j += 1
         if j == WINDOW_SIZE:
             resend = False
+            print ("No mas retransmisiones")
     try:
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
@@ -139,7 +142,6 @@ while Conn:
             nseqr = (int(datalist[1]) + 1) % WINDOW_SIZE
             time_ack = time.time()
             rtt = (time_ack - time_send)
-            TIMEOUT = setTimeout(rtt, estimatedRTT, devRTT)
             received = 0
             transm = 0
             if (nseqr == nextseqnum): # All ACK'd
@@ -157,6 +159,7 @@ while Conn:
                 count += received * PACKAGE_SIZE
     except Exception as e:
         print(e)
+        #TIMEOUT = setTimeout(rtt, estimatedRTT, devRTT)
         TIMEOUT *= 2
         savesend = False
         resend = True
