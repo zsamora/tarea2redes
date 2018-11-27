@@ -18,7 +18,7 @@ MAX_RT = 10
 TwoWH = False#False#sys.argv[1]
 ThreeWH = True#True#sys.argv[2]
 Conn = True
-Close = False#True
+Close = True
 
 # Variables
 MAX_NSEQ = 0
@@ -109,6 +109,9 @@ while Conn:
             sock.sendto(pkt, addr)
             file.write(datalist[3])
             expected_seqn = (expected_seqn + 1) % MAX_NSEQ
+        else:
+            pkt = str.encode(ACK_HEADER+SEPARATOR+str((expected_seqn-1)%MAX_NSEQ)+SEPARATOR+FIN_FALSE+SEPARATOR+"ACK")
+            sock.sendto(pkt, addr)
     except Exception as e:
         print(e)
         print("Closed connection with client")

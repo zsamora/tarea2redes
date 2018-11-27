@@ -7,7 +7,7 @@ UDP_IP = "127.0.0.1"
 UDP_PORT = 8000
 BITS_SEQUENCE = 3
 WINDOW_SIZE = 2**BITS_SEQUENCE
-SENT_SIZE = WINDOW_SIZE / 2
+MAX_NSEQ = WINDOW_SIZE * 2
 PACKAGE_SIZE = 1
 SYN_TIMEOUT = 2
 TIMEOUT = 1
@@ -28,7 +28,7 @@ ThreeWH = True#True#sys.argv[2]
 savesend = True
 resend = False
 Conn = True
-Close = False#True
+Close = True
 NO_ACK = True
 RT = False
 FIRST_SENT = True
@@ -85,7 +85,7 @@ while TwoWH:
     sock.settimeout(SYN_TIMEOUT) # 2 segundos entre cada retransmision del paquete SYN
     try:
         # SYN
-        pkt = str.encode(PKG_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+str(WINDOW_SIZE-1))
+        pkt = str.encode(PKG_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+str(MAX_NSEQ-1))
         sock.sendto(pkt, (UDP_IP, UDP_PORT))
         # SYN-ACK
         data, addr = sock.recvfrom(1024)
@@ -115,7 +115,7 @@ while ThreeWH:
     sock.settimeout(SYN_TIMEOUT) # 2 segundos entre cada retransmision del paquete SYN
     try:
         # SYN
-        pkt = str.encode(PKG_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+str(WINDOW_SIZE-1))
+        pkt = str.encode(PKG_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+str(MAX_NSEQ-1))
         sock.sendto(pkt, (UDP_IP, UDP_PORT))
         # SYN-ACK
         data, addr = sock.recvfrom(1024)
@@ -146,10 +146,9 @@ while Conn:
         file.close()
         sock.close()
         break
-    #print("base:",base,"nextseqnum:",nextseqnum,"timeout:", TIMEOUT, "received:",received)
+    print("base:",base,"nextseqnum:",nextseqnum,"timeout:", TIMEOUT, "received:",received, "lenpack:",len(package))
     if (received != 0):
         package = package[received:]
-    #print(package)
     while savesend:
         p = file.read(PACKAGE_SIZE).decode("utf-8")
         # Envio del paquete p
@@ -158,19 +157,18 @@ while Conn:
             pkt = str.encode(PKG_HEADER+SEPARATOR+str(nextseqnum)+SEPARATOR+FIN_FALSE+SEPARATOR+p)
             sock.sendto(pkt, (UDP_IP, UDP_PORT))
         # Si se envia por primera vez
-        if FIRST_SENT:
+        if base == nextseqnum:
             sock.settimeout(TIMEOUT)
             time_send = time.time()
-            FIRST_SENT = False
-        nextseqnum = (nextseqnum + 1) % WINDOW_SIZE
+        nextseqnum = (nextseqnum + 1) % MAX_NSEQ
         if received != 0:
             received -= 1
-        if nextseqnum == (base + SENT_SIZE) % WINDOW_SIZE and received == 0:
+        if nextseqnum == (base + WINDOW_SIZE) % MAX_NSEQ and received == 0:
             savesend = False
     i = base
     j = 0
     while resend:
-        i = (i + j) % WINDOW_SIZE
+        i = (i + j) % MAX_NSEQ
         if (i == base):
             transm += 1
             n_transm += 1
@@ -186,7 +184,7 @@ while Conn:
         datalist = data.decode("utf-8").split(SEPARATOR)
         print (datalist)
         if int(datalist[0]):
-            nseqr = (int(datalist[1]) + 1) % WINDOW_SIZE
+            nseqr = (int(datalist[1]) + 1) % MAX_NSEQ
             if not(RT):
                 time_ack = time.time()
                 rtt = (time_ack - time_send)
@@ -194,24 +192,31 @@ while Conn:
                 TIMEOUT = setTimeout(rtt)
             NO_ACK = False
             RT = False
-            FIRST_SENT = True
+            #FIRST_SENT = True
             received = 0
             transm = 0
             if (nseqr == nextseqnum): # All ACK'd
+                print("ALL ACKD")
                 sock.settimeout(None)
                 savesend = True
                 received = WINDOW_SIZE
                 count += received * PACKAGE_SIZE
                 base = nseqr
             else: # Some ACK'd
+                print("SOME ACKED")
                 sock.settimeout(TIMEOUT)
-                savesend = True
+                time_send = time.time()
+                print("base",base,"nseqr",nseqr)
+                if (base == nseqr):
+                    savesend = False
+                else:
+                    savesend = True
                 while base != nseqr:
                     received += 1
-                    base = (base + 1) % WINDOW_SIZE
+                    base = (base + 1) % MAX_NSEQ
                 count += received * PACKAGE_SIZE
     except Exception as e:
-        #print(e)
+        print(e)
         if NO_ACK:
             TIMEOUT *= 2
         received = 0
