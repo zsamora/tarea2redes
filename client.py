@@ -40,7 +40,7 @@ base = 0
 nextseqnum = 0
 received = 0
 transm = 0
-#n_transm = 0
+n_transm = 0
 time_send = 0
 time_ack = 0
 devRTT = 0
@@ -110,10 +110,10 @@ while Conn:
         if p != '':
             package.append(p)
             pkt = str.encode(PKG_HEADER+SEPARATOR+str(nextseqnum)+SEPARATOR+FIN_FALSE+SEPARATOR+p)
-            time_send = time.time()
             sock.sendto(pkt, (UDP_IP, UDP_PORT))
         if (nextseqnum == base):
             sock.settimeout(TIMEOUT)
+            time_send = time.time()
         nextseqnum = (nextseqnum + 1) % WINDOW_SIZE
         if received != 0:
             received -= 1
@@ -126,7 +126,7 @@ while Conn:
         i = (i + j) % WINDOW_SIZE
         if (i == base):
             transm += 1
-            n_transm += transm
+            n_transm += 1
             sock.settimeout(TIMEOUT)
         pkt = str.encode(PKG_HEADER+SEPARATOR+str(i)+SEPARATOR+FIN_FALSE+SEPARATOR+package[j])
         sock.sendto(pkt, (UDP_IP, UDP_PORT))
@@ -140,9 +140,10 @@ while Conn:
         #print (datalist)
         if int(datalist[0]):
             nseqr = (int(datalist[1]) + 1) % WINDOW_SIZE
-            time_ack = time.time()
-            rtt = (time_ack - time_send)
-            TIMEOUT = setTimeout(rtt, estimatedRTT, devRTT)
+            if RS:
+                time_ack = time.time()
+                rtt = (time_ack - time_send)
+                TIMEOUT = setTimeout(rtt, estimatedRTT, devRTT)
             received = 0
             transm = 0
             if (nseqr == nextseqnum): # All ACK'd
