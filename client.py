@@ -2,13 +2,14 @@ import socket
 import os
 import time
 import sys
-
 # Constants
 UDP_IP = "127.0.0.1"
 UDP_PORT = 8000
 BITS_SEQUENCE = 3
 WINDOW_SIZE = 2**BITS_SEQUENCE
+SENT_SIZE = WINDOW_SIZE / 2
 PACKAGE_SIZE = 1
+SYN_TIMEOUT = 2
 TIMEOUT = 1
 MAX_RT = 10
 alpha = 0.125
@@ -22,13 +23,15 @@ FIN_FALSE = "0"
 SEPARATOR = "|||"
 data = ""
 addr = ""
-TwoWH = sys.argv[1]
-ThreeWH = sys.argv[2]
+TwoWH = False#False#sys.argv[1]
+ThreeWH = True#True#sys.argv[2]
 savesend = True
 resend = False
-Close = True
 Conn = True
-RS = False
+Close = False#True
+NO_ACK = True
+RT = False
+FIRST_SENT = True
 
 # File open and size
 file = open("tarea2.txt","rb")
@@ -53,8 +56,9 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 package = []
 
 # Algoritmo de Karn
-def setTimeout(s_rtt, estimatedRTT, devRTT):
+def setTimeout(s_rtt):
     # RTT estimado
+    global estimatedRTT, devRTT
     sampleRTT = s_rtt
     estimatedRTT = (1-alpha)*estimatedRTT + alpha*sampleRTT
     # Desviacion estandar
@@ -68,82 +72,129 @@ def setTimeout(s_rtt, estimatedRTT, devRTT):
 
 # Two way handshake
 while TwoWH:
-    # SYN
-    pkt = str.encode(PKG_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+str(WINDOW_SIZE-1))
-    sock.sendto(pkt, (UDP_IP, UDP_PORT))
-    # SYN-ACK
-    data, addr = sock.recvfrom(1024)
-    datalist = data.decode("utf-8").split(SEPARATOR)
-    if (int(datalist[0]) and int(datalist[1])==base):
-        TwoWH = False
+    print("Two way handshake")
+    if transm > MAX_RT:
+        print("Can't stablish conection with server")
+        sock.settimeout(None)
+        Conn = False
+        Close = False
+        file.close()
+        sock.close()
+        break
 
-# Three way handshakeSEPARATOR+
-while ThreeWH:
-    # SYN
-    pkt = str.encode(PKG_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+str(WINDOW_SIZE-1))
-    sock.sendto(pkt, (UDP_IP, UDP_PORT))
-    # SYN-ACK
-    data, addr = sock.recvfrom(1024)
-    datalist = data.decode("utf-8").split(SEPARATOR)
-    #print (datalist)
-    if (int(datalist[0]) and int(datalist[1])==base):
-        base += 1
-        # ACK
-        pkt = str.encode(ACK_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+"ACK")
+    sock.settimeout(SYN_TIMEOUT) # 2 segundos entre cada retransmision del paquete SYN
+    try:
+        # SYN
+        pkt = str.encode(PKG_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+str(WINDOW_SIZE-1))
         sock.sendto(pkt, (UDP_IP, UDP_PORT))
-        ThreeWH = False
-    base = 0
+        # SYN-ACK
+        data, addr = sock.recvfrom(1024)
+        datalist = data.decode("utf-8").split(SEPARATOR)
+        print (datalist)
+        if (int(datalist[0]) and int(datalist[1])==base):
+            sock.settimeout(None)
+            transm = 0
+            TwoWH = False
+            print ("Conexion con el servidor establecida con exito")
+    except Exception as e:
+        print(e)
+        transm += 1
 
-print ("Conexion con el servidor establecida con exito")
+# Three way handshake
+while ThreeWH:
+    #print("Three way handshake")
+    if transm > MAX_RT:
+        print("Can't stablish conection with server")
+        sock.settimeout(None)
+        Conn = False
+        Close = False
+        file.close()
+        sock.close()
+        break
+
+    sock.settimeout(SYN_TIMEOUT) # 2 segundos entre cada retransmision del paquete SYN
+    try:
+        # SYN
+        pkt = str.encode(PKG_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+str(WINDOW_SIZE-1))
+        sock.sendto(pkt, (UDP_IP, UDP_PORT))
+        # SYN-ACK
+        data, addr = sock.recvfrom(1024)
+        datalist = data.decode("utf-8").split(SEPARATOR)
+        print (datalist)
+        if (int(datalist[0]) and int(datalist[1])==base):
+            base += 1
+            # ACK
+            pkt = str.encode(ACK_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+"ACK")
+            sock.sendto(pkt, (UDP_IP, UDP_PORT))
+            sock.settimeout(None)
+            transm = 0
+            ThreeWH = False
+            print ("Conexion con el servidor establecida con exito")
+        base = 0
+    except Exception as e:
+        print(e)
+        transm += 1
+
 
 tiempo_inicio = time.time()
-
 while Conn:
     if transm > MAX_RT:
         print("Closed connection with server")
+        sock.settimeout(None)
         Close = False
         Conn = False
+        file.close()
+        sock.close()
         break
-    package = package[received:]
+    #print("base:",base,"nextseqnum:",nextseqnum,"timeout:", TIMEOUT, "received:",received)
+    if (received != 0):
+        package = package[received:]
+    #print(package)
     while savesend:
         p = file.read(PACKAGE_SIZE).decode("utf-8")
-        if p != '':
+        # Envio del paquete p
+        if (p!=''):
             package.append(p)
             pkt = str.encode(PKG_HEADER+SEPARATOR+str(nextseqnum)+SEPARATOR+FIN_FALSE+SEPARATOR+p)
             sock.sendto(pkt, (UDP_IP, UDP_PORT))
-        if (nextseqnum == base):
+        # Si se envia por primera vez
+        if FIRST_SENT:
             sock.settimeout(TIMEOUT)
             time_send = time.time()
+            FIRST_SENT = False
         nextseqnum = (nextseqnum + 1) % WINDOW_SIZE
         if received != 0:
             received -= 1
-        if nextseqnum == (base + WINDOW_SIZE) % WINDOW_SIZE and received == 0:
+        if nextseqnum == (base + SENT_SIZE) % WINDOW_SIZE and received == 0:
             savesend = False
     i = base
     j = 0
     while resend:
-        print ("Retransmitiendo")
         i = (i + j) % WINDOW_SIZE
         if (i == base):
             transm += 1
             n_transm += 1
+            RT = True
             sock.settimeout(TIMEOUT)
         pkt = str.encode(PKG_HEADER+SEPARATOR+str(i)+SEPARATOR+FIN_FALSE+SEPARATOR+package[j])
         sock.sendto(pkt, (UDP_IP, UDP_PORT))
         j += 1
-        if j == WINDOW_SIZE:
+        if j == len(package):
             resend = False
-            print ("No mas retransmisiones")
     try:
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
-        #print (datalist)
+        print (datalist)
         if int(datalist[0]):
             nseqr = (int(datalist[1]) + 1) % WINDOW_SIZE
-            if RS:
+            if not(RT):
                 time_ack = time.time()
                 rtt = (time_ack - time_send)
-                TIMEOUT = setTimeout(rtt, estimatedRTT, devRTT)
+                #print("rtt:",rtt)
+                TIMEOUT = setTimeout(rtt)
+            NO_ACK = False
+            RT = False
+            FIRST_SENT = True
             received = 0
             transm = 0
             if (nseqr == nextseqnum): # All ACK'd
@@ -160,10 +211,10 @@ while Conn:
                     base = (base + 1) % WINDOW_SIZE
                 count += received * PACKAGE_SIZE
     except Exception as e:
-        print(e)
-        if not(RS):
+        #print(e)
+        if NO_ACK:
             TIMEOUT *= 2
-        RS = True
+        received = 0
         savesend = False
         resend = True
         continue
@@ -176,8 +227,6 @@ while Conn:
 tiempo_final = time.time()
 tiempo_envio = tiempo_final - tiempo_inicio
 
-print ("Envio realizado con exito")
-
 # Close conection client
 while Close:
     # FIN_CLIENT
@@ -188,10 +237,12 @@ while Close:
     # ACK_SERVER
     data, addr = sock.recvfrom(1024)
     datalist = data.decode("utf-8").split(SEPARATOR)
+    print(datalist)
     if (int(datalist[0]) and int(datalist[2])):
         # FIN_SERVER
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
+        print(datalist)
         if int(datalist[2]):
             # ACK_CLIENT
             pkt = str.encode(ACK_HEADER+SEPARATOR+str(nextseqnum)+SEPARATOR+FIN_HEADER+SEPARATOR+"ACK_CLIENT")
@@ -200,7 +251,6 @@ while Close:
             file.close()
             sock.close()
             print("Conexion con el servidor cerrada con exito")
+            print("Tiempo de envio: " + str(tiempo_envio))
+            print("Numero de retransmisiones: " + str(n_transm))
             break
-
-print("Tiempo de envio: " + str(tiempo_envio))
-print("Numero de retransmisiones: " + str(n_transm))
