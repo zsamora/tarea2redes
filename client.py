@@ -23,8 +23,6 @@ FIN_FALSE = "0"
 SEPARATOR = "|||"
 data = ""
 addr = ""
-TwoWH = False#sys.argv[1]
-ThreeWH = True#sys.argv[2]
 savesend = True
 resend = False
 Conn = True
@@ -32,6 +30,12 @@ Close = True
 NO_ACK = True
 RT = False
 FIRST_SENT = True
+if (int(sys.argv[1]) == 0):
+    TwoWH = True
+    ThreeWH = False
+elif (int(sys.argv[1]) == 1):
+    TwoWH = False
+    ThreeWH = True
 
 # File open and size
 file = open("tarea2.txt","rb")
@@ -72,6 +76,7 @@ def setTimeout(s_rtt):
 
 # Two way handshak
 while TwoWH:
+    print("Conexion Two-WH")
     if transm > MAX_RT:
         print("Número máximo de retransmisiones alcanzado en 2WH")
         sock.settimeout(None)
@@ -105,6 +110,7 @@ while TwoWH:
 
 # Three way handshake
 while ThreeWH:
+    print("Conexion Three-WH")
     if transm > MAX_RT:
         print("Número máximo de retransmisiones alcanzado en 3WH")
         sock.settimeout(None)

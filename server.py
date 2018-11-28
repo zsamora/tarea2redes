@@ -15,10 +15,14 @@ data = ""
 addr = ""
 TIMEOUT = 20
 MAX_RT = 10
-TwoWH = False#sys.argv[1]
-ThreeWH = True#sys.argv[2]
 Conn = True
 Close = True
+if (int(sys.argv[1]) == 0):
+    TwoWH = True
+    ThreeWH = False
+elif (int(sys.argv[1]) == 1):
+    TwoWH = False
+    ThreeWH = True
 
 # Variables
 MAX_NSEQ = 0
@@ -27,9 +31,10 @@ transm = 0
 
 # Socket
 sock.bind((UDP_IP, UDP_PORT))
-False
+
 # Two way handshake
 while TwoWH:
+    print("Conexion Two-WH")
     sock.settimeout(TIMEOUT) # MAX_RT * 2 seg (tiempo en que el cliente desiste)
     try:
         # SYN
@@ -59,6 +64,7 @@ while TwoWH:
 
 # Three way handshake
 while ThreeWH:
+    print("Conexion Three-WH")
     sock.settimeout(TIMEOUT) # MAX_RT * 2 seg (tiempo en que el cliente desiste)
     try:
         # SYN
