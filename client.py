@@ -23,8 +23,8 @@ FIN_FALSE = "0"
 SEPARATOR = "|||"
 data = ""
 addr = ""
-TwoWH = False#False#sys.argv[1]
-ThreeWH = True#True#sys.argv[2]
+TwoWH = True#sys.argv[1]
+ThreeWH = False#sys.argv[2]
 savesend = True
 resend = False
 Conn = True
@@ -72,7 +72,6 @@ def setTimeout(s_rtt):
 
 # Two way handshake
 while TwoWH:
-    print("Two way handshake")
     if transm > MAX_RT:
         print("Can't stablish conection with server")
         sock.settimeout(None)
@@ -81,7 +80,6 @@ while TwoWH:
         file.close()
         sock.close()
         break
-
     sock.settimeout(SYN_TIMEOUT) # 2 segundos entre cada retransmision del paquete SYN
     try:
         # SYN
@@ -94,10 +92,13 @@ while TwoWH:
         if (int(datalist[0]) and int(datalist[1])==base):
             sock.settimeout(None)
             transm = 0
+            base += 1
+            nextseqnum = base
             TwoWH = False
             print ("Conexion con el servidor establecida con exito")
     except Exception as e:
         print(e)
+        base = 0
         transm += 1
 
 # Three way handshake
@@ -122,7 +123,6 @@ while ThreeWH:
         print (datalist)
         if (int(datalist[0]) and int(datalist[1])==base):
             base += 1
-            #print("base2:",base)
             # ACK
             pkt = str.encode(ACK_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+"ACK")
             sock.sendto(pkt, (UDP_IP, UDP_PORT))
@@ -130,7 +130,6 @@ while ThreeWH:
             transm = 0
             ThreeWH = False
             base += 1
-            #print("base3:",base)
             nextseqnum = base
             print ("Conexion con el servidor establecida con exito")
     except Exception as e:

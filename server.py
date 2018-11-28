@@ -15,8 +15,8 @@ data = ""
 addr = ""
 TIMEOUT = 20
 MAX_RT = 10
-TwoWH = False#False#sys.argv[1]
-ThreeWH = True#True#sys.argv[2]
+TwoWH = True#sys.argv[1]
+ThreeWH = False#sys.argv[2]
 Conn = True
 Close = True
 
@@ -30,7 +30,6 @@ sock.bind((UDP_IP, UDP_PORT))
 
 # Two way handshake
 while TwoWH:
-    print("Two way handshake")
     sock.settimeout(TIMEOUT) # MAX_RT * 2 seg (tiempo en que el cliente desiste)
     try:
         # SYN
@@ -38,12 +37,12 @@ while TwoWH:
         datalist = data.decode("utf-8").split(SEPARATOR)
         print (datalist)
         # SYN-ACK
-        nseq = int(datalist[1])
-        if (expected_seqn == nseq):
-            MAX_NSEQ = int(datalist[3]) + 1
-            pkt = str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+FIN_FALSE+SEPARATOR+"SYN-ACK")
-            sock.sendto(pkt, addr)
+        if (expected_seqn == int(datalist[1])):
             sock.settimeout(None)
+            MAX_NSEQ = int(datalist[3]) + 1
+            pkt = str.encode(ACK_HEADER+SEPARATOR+str(expected_seqn)+SEPARATOR+FIN_FALSE+SEPARATOR+"SYN-ACK")
+            sock.sendto(pkt, addr)
+            expected_seqn += 1
             transm = 0
             TwoWH = False
             print ("Conexion con el cliente establecida con exito")
@@ -60,38 +59,26 @@ while TwoWH:
 while ThreeWH:
     sock.settimeout(TIMEOUT) # MAX_RT * 2 seg (tiempo en que el cliente desiste)
     try:
-        #print("expected_seqn1:",expected_seqn)
         # SYN
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
         print (datalist)
         # SYN-ACK
-        nseq = int(datalist[1])
-        if (expected_seqn == nseq):
+        if (expected_seqn == int(datalist[1])):
             MAX_NSEQ = int(datalist[3]) + 1
-            pkt = str.encode(ACK_HEADER+SEPARATOR+str(nseq)+SEPARATOR+FIN_FALSE+SEPARATOR+"SYN-ACK")
+            pkt = str.encode(ACK_HEADER+SEPARATOR+str(int(datalist[1]))+SEPARATOR+FIN_FALSE+SEPARATOR+"SYN-ACK")
             sock.sendto(pkt, addr)
             expected_seqn += 1
-            #print("expected_seqn2:",expected_seqn)
             # ACK
             data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
             datalist = data.decode("utf-8").split(SEPARATOR)
             print (datalist)
-            nseq = int(datalist[1])
-            if (int(datalist[0]) and expected_seqn==nseq):
+            if (int(datalist[0]) and expected_seqn<=int(datalist[1])):
                 sock.settimeout(None)
                 ThreeWH = False
                 expected_seqn += 1
-                #print("expected_seqn3:",expected_seqn)
-                print ("Conexion con el cliente establecida con exito")
-            elif (expected_seqn < nseq):
-                sock.settimeout(None)
-                ThreeWH = False
-                expected_seqn += 1
-                #print("expected_seqn4:",expected_seqn)
                 print ("Conexion con el cliente establecida con exito")
             else:
-                #print("expected_seqn5:",expected_seqn)
                 expected_seqn = 0
     except Exception as e:
         print(e)
