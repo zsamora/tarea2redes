@@ -11,7 +11,7 @@ MAX_NSEQ = WINDOW_SIZE * 2
 PACKAGE_SIZE = 1
 SYN_TIMEOUT = 2
 TIMEOUT = 1
-MAX_RT = 5
+MAX_RT = 20
 alpha = 0.125
 beta = 0.25
 
@@ -23,8 +23,8 @@ FIN_FALSE = "0"
 SEPARATOR = "|||"
 data = ""
 addr = ""
-TwoWH = True#sys.argv[1]
-ThreeWH = False#sys.argv[2]
+TwoWH = False#sys.argv[1]
+ThreeWH = True#sys.argv[2]
 savesend = True
 resend = False
 Conn = True
@@ -70,10 +70,10 @@ def setTimeout(s_rtt):
     timeout = estimatedRTT + 4*devRTT
     return timeout
 
-# Two way handshake
+# Two way handshak
 while TwoWH:
     if transm > MAX_RT:
-        print("Can't stablish conection with server")
+        print("Número máximo de retransmisiones alcanzado en 2WH")
         sock.settimeout(None)
         Conn = False
         Close = False
@@ -83,12 +83,14 @@ while TwoWH:
     sock.settimeout(SYN_TIMEOUT) # 2 segundos entre cada retransmision del paquete SYN
     try:
         # SYN
+        print("Envío de paquete SYN")
         pkt = str.encode(PKG_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+str(MAX_NSEQ-1))
         sock.sendto(pkt, (UDP_IP, UDP_PORT))
         # SYN-ACK
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
-        print (datalist)
+        print("SYN-ACK recibido")
+        #print (datalist)
         if (int(datalist[0]) and int(datalist[1])==base):
             sock.settimeout(None)
             transm = 0
@@ -97,14 +99,14 @@ while TwoWH:
             TwoWH = False
             print ("Conexion con el servidor establecida con exito")
     except Exception as e:
-        print(e)
+        #print(e)
         base = 0
         transm += 1
 
 # Three way handshake
 while ThreeWH:
     if transm > MAX_RT:
-        print("Can't stablish conection with server")
+        print("Número máximo de retransmisiones alcanzado en 3WH")
         sock.settimeout(None)
         Conn = False
         Close = False
@@ -115,15 +117,18 @@ while ThreeWH:
     try:
         #print("base1:",base)
         # SYN
+        print("Envío de paquete SYN")
         pkt = str.encode(PKG_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+str(MAX_NSEQ-1))
         sock.sendto(pkt, (UDP_IP, UDP_PORT))
         # SYN-ACK
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
+        print("SYN-ACK recibido")
         print (datalist)
         if (int(datalist[0]) and int(datalist[1])==base):
             base += 1
             # ACK
+            print("Envío de paquete ACK")
             pkt = str.encode(ACK_HEADER+SEPARATOR+str(base)+SEPARATOR+FIN_FALSE+SEPARATOR+"ACK")
             sock.sendto(pkt, (UDP_IP, UDP_PORT))
             sock.settimeout(None)
@@ -131,24 +136,23 @@ while ThreeWH:
             ThreeWH = False
             base += 1
             nextseqnum = base
-            print ("Conexion con el servidor establecida con exito")
+            print ("Conexión con el servidor establecida con éxito")
     except Exception as e:
-        print(e)
+        #print(e)
         transm += 1
         base = 0
-
 
 tiempo_inicio = time.time()
 while Conn:
     if transm > MAX_RT:
-        print("Closed connection with server")
+        print("Número máximo de transmisiones alcanzado")
         sock.settimeout(None)
         Close = False
         Conn = False
         file.close()
         sock.close()
         break
-    print("base:",base,"nextseqnum:",nextseqnum,"timeout:", TIMEOUT, "received:",received, "lenpack:",len(package))
+    #print("base:",base,"nextseqnum:",nextseqnum,"timeout:", TIMEOUT, "received:",received, "lenpack:",len(package))
     if (received != 0):
         package = package[received:]
     while savesend:
@@ -184,7 +188,7 @@ while Conn:
     try:
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
-        print (datalist)
+        #print (datalist)
         if int(datalist[0]):
             nseqr = (int(datalist[1]) + 1) % MAX_NSEQ
             if not(RT):
@@ -198,17 +202,17 @@ while Conn:
             received = 0
             transm = 0
             if (nseqr == nextseqnum): # All ACK'd
-                print("ALL ACKD")
+                #print("ALL ACKD")
                 sock.settimeout(None)
                 savesend = True
                 received = WINDOW_SIZE
                 count += received * PACKAGE_SIZE
                 base = nseqr
             else: # Some ACK'd
-                print("SOME ACKED")
+                #print("SOME ACKED")
                 sock.settimeout(TIMEOUT)
                 time_send = time.time()
-                print("base",base,"nseqr",nseqr)
+                #print("base",base,"nseqr",nseqr)
                 if (base == nseqr):
                     savesend = False
                 else:
@@ -218,7 +222,7 @@ while Conn:
                     base = (base + 1) % MAX_NSEQ
                 count += received * PACKAGE_SIZE
     except Exception as e:
-        print(e)
+        #print(e)
         if NO_ACK:
             TIMEOUT *= 2
         received = 0
@@ -228,11 +232,14 @@ while Conn:
     # Texto finalizado
     if (count >= file_size):
         sock.settimeout(None)
-        Conn = True
+        Conn = False
+        tiempo_final = time.time()
+        tiempo_envio = tiempo_final - tiempo_inicio
+        print("Conexion con el servidor cerrada con exito")
+        print("Tamaño del archivo: " + str(file_size))
+        print("Tiempo de envio: " + str(tiempo_envio))
+        print("Numero de retransmisiones: " + str(n_transm))
         break
-
-tiempo_final = time.time()
-tiempo_envio = tiempo_final - tiempo_inicio
 
 # Close conection client
 while Close:
@@ -254,12 +261,12 @@ while Close:
         # ACK_SERVER
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
-        print(datalist)
+        #print(datalist)
         if (int(datalist[0]) and int(datalist[2])):
             # FIN_SERVER
             data, addr = sock.recvfrom(1024)
             datalist = data.decode("utf-8").split(SEPARATOR)
-            print(datalist)
+            #print(datalist)
             if int(datalist[2]):
                 sock.settimeout(None)
                 transm = 0
@@ -269,10 +276,7 @@ while Close:
                 Close = False
                 file.close()
                 sock.close()
-                print("Conexion con el servidor cerrada con exito")
-                print("Tiempo de envio: " + str(tiempo_envio))
-                print("Numero de retransmisiones: " + str(n_transm))
                 break
     except Exception as e:
-        print(e)
+        #print(e)
         transm +=1

@@ -15,8 +15,8 @@ data = ""
 addr = ""
 TIMEOUT = 20
 MAX_RT = 10
-TwoWH = True#sys.argv[1]
-ThreeWH = False#sys.argv[2]
+TwoWH = False#sys.argv[1]
+ThreeWH = True#sys.argv[2]
 Conn = True
 Close = True
 
@@ -27,7 +27,7 @@ transm = 0
 
 # Socket
 sock.bind((UDP_IP, UDP_PORT))
-
+False
 # Two way handshake
 while TwoWH:
     sock.settimeout(TIMEOUT) # MAX_RT * 2 seg (tiempo en que el cliente desiste)
@@ -35,11 +35,13 @@ while TwoWH:
         # SYN
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
-        print (datalist)
+        print("Paquete SYN recibido")
+        #print (datalist)
         # SYN-ACK
         if (expected_seqn == int(datalist[1])):
             sock.settimeout(None)
             MAX_NSEQ = int(datalist[3]) + 1
+            print("Envío de paquete SYN-ACK")
             pkt = str.encode(ACK_HEADER+SEPARATOR+str(expected_seqn)+SEPARATOR+FIN_FALSE+SEPARATOR+"SYN-ACK")
             sock.sendto(pkt, addr)
             expected_seqn += 1
@@ -47,7 +49,7 @@ while TwoWH:
             TwoWH = False
             print ("Conexion con el cliente establecida con exito")
     except Exception as e:
-        print(e)
+        #print(e)
         print("Can't stablish connection with client")
         Conn = False
         Close = False
@@ -62,10 +64,12 @@ while ThreeWH:
         # SYN
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
+        print("Paquete SYN recibido")
         print (datalist)
         # SYN-ACK
         if (expected_seqn == int(datalist[1])):
             MAX_NSEQ = int(datalist[3]) + 1
+            print("Envío de paquete SYN-ACK")
             pkt = str.encode(ACK_HEADER+SEPARATOR+str(int(datalist[1]))+SEPARATOR+FIN_FALSE+SEPARATOR+"SYN-ACK")
             sock.sendto(pkt, addr)
             expected_seqn += 1
@@ -74,23 +78,23 @@ while ThreeWH:
             datalist = data.decode("utf-8").split(SEPARATOR)
             print (datalist)
             if (int(datalist[0]) and expected_seqn<=int(datalist[1])):
+                print("Paquete ACK recibido")
                 sock.settimeout(None)
                 ThreeWH = False
                 expected_seqn += 1
-                print ("Conexion con el cliente establecida con exito")
+                print ("Conexión con el cliente establecida con éxito")
             else:
+                print("Paquete incorrecto recibido")
                 expected_seqn = 0
     except Exception as e:
-        print(e)
-        print("Can't stablish connection with client")
+        #print(e)
+        print("Timeout alcanzado, no se puede establecer conexión")
         expected_seqn = 0
         Conn = False
         Close = False
         file.close()
         sock.close()
         break
-
-
 
 while Conn:
     sock.settimeout(TIMEOUT) # No se recibe mas informacion o se cayo el server
@@ -100,7 +104,7 @@ while Conn:
         if (int(datalist[2])):
             sock.settimeout(None)
             Conn = False
-            print("Se cerrara la conexion")
+            #print("Se cerrara la conexion")
         elif (int(datalist[1])==expected_seqn):
             print (datalist)
             pkt = str.encode(ACK_HEADER+SEPARATOR+str(expected_seqn)+SEPARATOR+FIN_FALSE+SEPARATOR+"ACK")
@@ -111,7 +115,7 @@ while Conn:
             pkt = str.encode(ACK_HEADER+SEPARATOR+str((expected_seqn-1)%MAX_NSEQ)+SEPARATOR+FIN_FALSE+SEPARATOR+"ACK")
             sock.sendto(pkt, addr)
     except Exception as e:
-        print(e)
+        #print(e)
         print("Closed connection with client")
         sock.settimeout(None)
         Conn = False
@@ -135,7 +139,7 @@ while Close:
     # ACK_CLIENT
         data, addr = sock.recvfrom(1024)
         datalist = data.decode("utf-8").split(SEPARATOR)
-        print(datalist)
+        #print(datalist)
         if (int(datalist[0]) and int(datalist[2])):
             sock.settimeout(None)
             Close = False
@@ -144,7 +148,7 @@ while Close:
             print("Conexion con el cliente cerrada con exito")
             break
     except Exception as e:
-        print(e)
+        #print(e)
         print("Can't close connection with client correctly")
         Close = False
         file.close()
